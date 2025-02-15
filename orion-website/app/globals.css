@@ -90,8 +90,9 @@ body {
   }
 }
 
+/* Updated .cyberpunk-input using slash for alpha */
 .cyberpunk-input {
-  @apply bg-[hsl(var(--primary), 0.9)] border-2 border-[hsl(var(--primary))] rounded-md p-2 text-[hsl(var(--primary-foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary))] focus:border-transparent;
+  @apply bg-[hsl(var(--primary)/0.9)] border-2 border-[hsl(var(--primary))] rounded-md p-2 text-[hsl(var(--primary-foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary))] focus:border-transparent;
 }
 
 .cyberpunk-toggle {
