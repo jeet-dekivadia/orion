@@ -310,12 +310,6 @@ body {
     clip: rect(19px, 9999px, 77px, 0);
   }
   91.66666667% {
-    clip: rect(65px
-  }
-  87.5% {
-    clip: rect(19px, 9999px, 77px, 0);
-  }
-  91.66666667% {
     clip: rect(65px, 9999px, 45px, 0);
   }
   95.83333333% {
@@ -325,6 +319,7 @@ body {
     clip: rect(28px, 9999px, 99px, 0);
   }
 }
+
 
 /* Neon text effect */
 .neon-text {
