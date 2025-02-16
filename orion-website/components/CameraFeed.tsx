@@ -58,19 +58,46 @@ export default function CameraFeed() {
 
     const canvas = canvasRef.current;
     const video = videoRef.current;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    
+    // Reduce dimensions to ensure smaller file size
+    const maxDimension = 800;
+    let width = video.videoWidth;
+    let height = video.videoHeight;
+    
+    if (width > height) {
+      if (width > maxDimension) {
+        height = Math.round((height * maxDimension) / width);
+        width = maxDimension;
+      }
+    } else {
+      if (height > maxDimension) {
+        width = Math.round((width * maxDimension) / height);
+        height = maxDimension;
+      }
+    }
+    
+    canvas.width = width;
+    canvas.height = height;
     
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
 
-    ctx.drawImage(video, 0, 0);
-    return canvas.toDataURL("image/jpeg").split(",")[1];
+    ctx.drawImage(video, 0, 0, width, height);
+    
+    // Use lower JPEG quality to reduce file size
+    return canvas.toDataURL("image/jpeg", 0.8).split(",")[1];
   };
 
   const analyzeImage = async (base64Image: string): Promise<string> => {
     try {
       console.log('Sending request to Groq API...');
+      
+      // First, check the image size
+      const imageSize = base64Image.length * 0.75; // Convert base64 length to bytes
+      if (imageSize > 4 * 1024 * 1024) { // 4MB limit
+        throw new Error('Image size exceeds 4MB limit. Please try with a smaller image.');
+      }
+
       const response = await axios.post(
         'https://api.groq.com/openai/v1/chat/completions',
         {
@@ -91,7 +118,7 @@ export default function CameraFeed() {
               ]
             }
           ],
-          model: "llava-v1.5-7b-4096-preview",
+          model: "llama-3.2-11b-vision-preview",  // Updated to correct model
           temperature: 0.7,
           max_tokens: 300,
           top_p: 1,
@@ -190,8 +217,8 @@ export default function CameraFeed() {
   };
 
   const startAnalysisLoop = () => {
-    // Analyze every 8 seconds to avoid rate limits
-    analysisIntervalRef.current = setInterval(analyzeCurrentScene, 8000);
+    // Analyze every 10 seconds to be safe with rate limits
+    analysisIntervalRef.current = setInterval(analyzeCurrentScene, 10000);
   };
 
   return (
