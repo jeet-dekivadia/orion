@@ -216,7 +216,7 @@ export default function Hero() {
                     className="text-6xl font-bold mb-4 cyberpunk-text glitch neon-text"
                     data-text="Orion"
                 >
-                    Orion
+                    VisionMate
                 </motion.h1>
                 <motion.p
                     initial={{ opacity: 0, y: 20 }}
