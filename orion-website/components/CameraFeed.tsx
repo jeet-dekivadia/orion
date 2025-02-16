@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { motion } from "framer-motion";
 
-const GROQ_API_KEY = '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';
+const GROQ_API_KEY = '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';
 
 export default function CameraFeed() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -37,6 +37,8 @@ export default function CameraFeed() {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
+        // Start analysis immediately after camera starts
+        await analyzeCurrentScene();
         startAnalysisLoop();
       }
     } catch (error) {
@@ -76,7 +78,7 @@ export default function CameraFeed() {
               content: [
                 {
                   type: "text",
-                  text: "What is happening in this scene? Describe in one clear, concise sentence."
+                  text: "Describe what you see in this scene in detail, including any people, objects, actions, and the environment. Be specific but concise."
                 },
                 {
                   type: "image_url",
@@ -89,7 +91,7 @@ export default function CameraFeed() {
           ],
           model: "llama-3.2-11b-vision-preview",
           temperature: 0.7,
-          max_tokens: 200,
+          max_tokens: 300,
         },
         {
           headers: {
@@ -132,37 +134,35 @@ export default function CameraFeed() {
     }
   };
 
-  const startAnalysisLoop = () => {
-    analysisIntervalRef.current = setInterval(async () => {
-      if (isAnalyzing) return;
+  const analyzeCurrentScene = async () => {
+    if (isAnalyzing) return;
 
-      const frame = captureFrame();
-      if (!frame) return;
+    const frame = captureFrame();
+    if (!frame) return;
 
-      setIsAnalyzing(true);
-      try {
-        // Analyze the scene
-        const newDescription = await analyzeImage(frame);
-        
-        if (newDescription !== description) {
-          setDescription(newDescription);
-          
-          // Generate and play audio description
-          const audioBlob = await generateSpeech(newDescription);
-          const audioUrl = URL.createObjectURL(audioBlob);
-          
-          if (audioRef.current) {
-            audioRef.current.src = audioUrl;
-            await audioRef.current.play();
-          }
-        }
-      } catch (error) {
-        console.error("Error in analysis loop:", error);
-        setDescription("Error analyzing scene. Please try again.");
-      } finally {
-        setIsAnalyzing(false);
+    setIsAnalyzing(true);
+    try {
+      const newDescription = await analyzeImage(frame);
+      setDescription(newDescription);
+      
+      const audioBlob = await generateSpeech(newDescription);
+      const audioUrl = URL.createObjectURL(audioBlob);
+      
+      if (audioRef.current) {
+        audioRef.current.src = audioUrl;
+        await audioRef.current.play();
       }
-    }, 3000);
+    } catch (error) {
+      console.error("Error analyzing scene:", error);
+      setDescription("Error analyzing scene. Please try again.");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const startAnalysisLoop = () => {
+    // Analyze every 2 seconds
+    analysisIntervalRef.current = setInterval(analyzeCurrentScene, 2000);
   };
 
   return (
@@ -180,6 +180,11 @@ export default function CameraFeed() {
           className="w-full h-auto"
         />
         <canvas ref={canvasRef} className="hidden" />
+        {isAnalyzing && (
+          <div className="absolute top-4 right-4 bg-primary-500 text-white px-3 py-1 rounded-full text-sm">
+            Analyzing...
+          </div>
+        )}
       </motion.div>
 
       <motion.div
