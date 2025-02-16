@@ -149,35 +149,34 @@ export default function CameraFeed() {
     }
   };
 
-  const generateSpeech = async (text: string): Promise<Blob> => {
-    try {
-      const response = await axios.post(
-        'https://api.groq.com/openai/v1/audio/speech',
-        {
-          input: text,
-          model: "tts-1",
-          voice: "alloy",
-          speed: 1.0,
-          response_format: "mp3"
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${GROQ_API_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          responseType: 'blob'
+  const generateSpeech = async (text: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      try {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+        
+        // Use a more natural voice if available
+        const voices = window.speechSynthesis.getVoices();
+        const preferredVoice = voices.find(voice => 
+          voice.name.includes('Samantha') || // iOS/macOS
+          voice.name.includes('Google US English') || // Chrome
+          voice.name.includes('Microsoft David') // Windows
+        );
+        
+        if (preferredVoice) {
+          utterance.voice = preferredVoice;
         }
-      );
 
-      return new Blob([response.data], { type: 'audio/mpeg' });
-    } catch (error: any) {
-      console.error('Error generating speech:', {
-        status: error.response?.status,
-        data: error.response?.data,
-        message: error.message
-      });
-      throw new Error(`Failed to generate speech: ${error.response?.data?.error?.message || error.message}`);
-    }
+        utterance.onend = () => resolve();
+        utterance.onerror = (error) => reject(error);
+
+        window.speechSynthesis.speak(utterance);
+      } catch (error) {
+        reject(error);
+      }
+    });
   };
 
   const analyzeCurrentScene = async () => {
@@ -199,14 +198,7 @@ export default function CameraFeed() {
       setDescription(newDescription);
       
       console.log('Generating speech...');
-      const audioBlob = await generateSpeech(newDescription);
-      const audioUrl = URL.createObjectURL(audioBlob);
-      
-      if (audioRef.current) {
-        audioRef.current.src = audioUrl;
-        await audioRef.current.play();
-        audioRef.current.onended = () => URL.revokeObjectURL(audioUrl);
-      }
+      await generateSpeech(newDescription);
     } catch (error: any) {
       console.error("Error in scene analysis:", error);
       setError(error.message || "Failed to analyze scene. Please try again.");
@@ -257,8 +249,6 @@ export default function CameraFeed() {
           </p>
         )}
       </motion.div>
-
-      <audio ref={audioRef} className="hidden" />
     </div>
   );
 } 
