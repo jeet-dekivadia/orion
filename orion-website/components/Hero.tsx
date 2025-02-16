@@ -83,20 +83,9 @@ async function userOutput(client: any, flag: string, base64Image: string): Promi
     const path = await import('path')
     fs.writeFileSync(path.join(__dirname, 'output.mp3'), audioBuffer)
 
-    const pygame = await import('pygame')
-    pygame.mixer.init()
-    pygame.mixer.music.load('output.mp3')
-    pygame.mixer.music.play()
+    const audio = new Audio('output.mp3')
+    audio.play()
 
-    while (pygame.mixer.music.get_busy()) {
-      await new Promise(resolve => setTimeout(resolve, 100))
-    }
-
-    return response
-  } else if (flag === '2') {
-    const response = await figureContext(client, 1, base64Image)
-    const brailleTest = await import('braille_test')
-    brailleTest.sendText(response)
     return response
   } else if (flag === '3') {
     const tesseract = await import('tesseract.js')
