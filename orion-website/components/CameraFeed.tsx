@@ -70,8 +70,9 @@ export default function CameraFeed() {
 
   const analyzeImage = async (base64Image: string): Promise<string> => {
     try {
+      console.log('Sending request to Groq API...');
       const response = await axios.post(
-        'https://api.groq.com/v1/chat/completions',
+        'https://api.groq.com/openai/v1/chat/completions',
         {
           messages: [
             {
@@ -84,13 +85,13 @@ export default function CameraFeed() {
                 {
                   type: "image_url",
                   image_url: {
-                    url: `data:image/jpeg;base64,${base64Image}`,
+                    url: `data:image/jpeg;base64,${base64Image}`
                   }
                 }
               ]
             }
           ],
-          model: "llama-3.2-11b-vision-preview",
+          model: "llava-v1.5-7b-4096-preview",
           temperature: 0.7,
           max_tokens: 300,
           top_p: 1,
@@ -99,11 +100,12 @@ export default function CameraFeed() {
         {
           headers: {
             'Authorization': `Bearer ${GROQ_API_KEY}`,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
+            'Content-Type': 'application/json'
           }
         }
       );
+
+      console.log('Response from Groq:', response.data);
 
       if (!response.data?.choices?.[0]?.message?.content) {
         throw new Error('Invalid response format from Groq API');
@@ -111,26 +113,30 @@ export default function CameraFeed() {
 
       return response.data.choices[0].message.content;
     } catch (error: any) {
-      console.error('Error analyzing image:', error.response?.data || error.message);
-      throw new Error('Failed to analyze image');
+      console.error('Error analyzing image:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+      throw new Error(`Failed to analyze image: ${error.response?.data?.error?.message || error.message}`);
     }
   };
 
   const generateSpeech = async (text: string): Promise<Blob> => {
     try {
       const response = await axios.post(
-        'https://api.groq.com/v1/audio/speech',
+        'https://api.groq.com/openai/v1/audio/speech',
         {
           input: text,
           model: "tts-1",
           voice: "alloy",
-          speed: 1.0
+          speed: 1.0,
+          response_format: "mp3"
         },
         {
           headers: {
             'Authorization': `Bearer ${GROQ_API_KEY}`,
-            'Content-Type': 'application/json',
-            'Accept': 'audio/mpeg'
+            'Content-Type': 'application/json'
           },
           responseType: 'blob'
         }
@@ -138,8 +144,12 @@ export default function CameraFeed() {
 
       return new Blob([response.data], { type: 'audio/mpeg' });
     } catch (error: any) {
-      console.error('Error generating speech:', error.response?.data || error.message);
-      throw new Error('Failed to generate speech');
+      console.error('Error generating speech:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+      throw new Error(`Failed to generate speech: ${error.response?.data?.error?.message || error.message}`);
     }
   };
 
@@ -147,27 +157,32 @@ export default function CameraFeed() {
     if (isAnalyzing) return;
 
     const frame = captureFrame();
-    if (!frame) return;
+    if (!frame) {
+      setError("Failed to capture frame from camera");
+      return;
+    }
 
     setIsAnalyzing(true);
     setError(null);
     
     try {
+      console.log('Starting scene analysis...');
       const newDescription = await analyzeImage(frame);
+      console.log('Got description:', newDescription);
       setDescription(newDescription);
       
+      console.log('Generating speech...');
       const audioBlob = await generateSpeech(newDescription);
       const audioUrl = URL.createObjectURL(audioBlob);
       
       if (audioRef.current) {
         audioRef.current.src = audioUrl;
         await audioRef.current.play();
-        // Cleanup the URL after playing
         audioRef.current.onended = () => URL.revokeObjectURL(audioUrl);
       }
-    } catch (error) {
-      console.error("Error analyzing scene:", error);
-      setError("Failed to analyze scene. Please try again.");
+    } catch (error: any) {
+      console.error("Error in scene analysis:", error);
+      setError(error.message || "Failed to analyze scene. Please try again.");
       setDescription("");
     } finally {
       setIsAnalyzing(false);
@@ -175,8 +190,8 @@ export default function CameraFeed() {
   };
 
   const startAnalysisLoop = () => {
-    // Analyze every 5 seconds instead of 2
-    analysisIntervalRef.current = setInterval(analyzeCurrentScene, 5000);
+    // Analyze every 8 seconds to avoid rate limits
+    analysisIntervalRef.current = setInterval(analyzeCurrentScene, 8000);
   };
 
   return (
