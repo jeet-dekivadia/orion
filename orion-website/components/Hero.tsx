@@ -4,6 +4,7 @@ import { motion, useAnimation } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import axios from 'axios';
 import { Buffer } from 'buffer';
+import { useRouter } from "next/navigation";
 
 const groqApiKey = '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';
 const groqApiUrl = 'https://api.groq.com';
@@ -87,6 +88,7 @@ export default function Hero() {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [isHovered, setIsHovered] = useState(false);
     const buttonControls = useAnimation();
+    const router = useRouter();
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -191,55 +193,15 @@ export default function Hero() {
         });
     };
 
-    const handleTryNowClick = async () => {
-        const video = videoRef.current;
-        if (video) {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                video.srcObject = stream;
-                video.play();
-
-                video.addEventListener('play', () => {
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    if (!ctx) return;
-
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
-
-                    document.body.appendChild(canvas);
-
-                    const detectFrame = async () => {
-                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                        const base64Image = canvas.toDataURL().split(',')[1];
-
-                        const predictions = await figureContext(0, base64Image);
-
-                        predictions.forEach(prediction => {
-                            ctx.beginPath();
-                            ctx.rect(...prediction.bbox);
-                            ctx.lineWidth = 1;
-                            ctx.strokeStyle = 'green';
-                            ctx.fillStyle = 'green';
-                            ctx.stroke();
-                            ctx.fillText(
-                                `${prediction.class} (${Math.round(prediction.score * 100)}%)`,
-                                prediction.bbox[0],
-                                prediction.bbox[1] > 10 ? prediction.bbox[1] - 5 : 10
-                            );
-
-                            const audio = new SpeechSynthesisUtterance(prediction.class);
-                            window.speechSynthesis.speak(audio);
-                        });
-
-                        requestAnimationFrame(detectFrame);
-                    };
-
-                    detectFrame();
-                });
-            } catch (error) {
-                console.error('Error accessing webcam: ', error);
-            }
+    const handleTryNow = async () => {
+        try {
+            // Request camera permission first
+            await navigator.mediaDevices.getUserMedia({ video: true });
+            // If permission granted, navigate to camera page
+            router.push("/camera");
+        } catch (error) {
+            console.error("Camera permission denied:", error);
+            alert("Please allow camera access to use this feature.");
         }
     };
 
@@ -271,7 +233,7 @@ export default function Hero() {
                     className="cyberpunk-button text-black font-bold py-3 px-6 rounded-full text-lg"
                     onHoverStart={handleHoverStart}
                     onHoverEnd={handleHoverEnd}
-                    onClick={handleTryNowClick}
+                    onClick={handleTryNow}
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
                 >
