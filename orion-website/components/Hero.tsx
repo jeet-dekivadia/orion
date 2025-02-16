@@ -2,9 +2,13 @@
 
 import { motion, useAnimation } from "framer-motion"
 import { useEffect, useRef, useState } from "react"
+// Import TensorFlow.js and COCO-SSD model
+import * as tf from '@tensorflow/tfjs';
+import * as cocoSsd from '@tensorflow-models/coco-ssd';
 
 export default function Hero() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null) // Reference for the video element
   const [isHovered, setIsHovered] = useState(false)
   const buttonControls = useAnimation()
 
@@ -111,8 +115,56 @@ export default function Hero() {
     })
   }
 
-  const handleTryNowClick = () => {
-    alert("Orion AI is launching... Prepare for an immersive experience!")
+  const handleTryNowClick = async () => {
+    const video = videoRef.current
+    if (video) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true })
+        video.srcObject = stream
+        video.play()
+
+        const model = await cocoSsd.load()
+
+        video.addEventListener('play', () => {
+          const canvas = document.createElement('canvas')
+          const ctx = canvas.getContext('2d')
+          if (!ctx) return
+
+          canvas.width = video.videoWidth
+          canvas.height = video.videoHeight
+
+          document.body.appendChild(canvas)
+
+          const detectFrame = async () => {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+            const predictions = await model.detect(video)
+
+            predictions.forEach(prediction => {
+              ctx.beginPath()
+              ctx.rect(...prediction.bbox)
+              ctx.lineWidth = 1
+              ctx.strokeStyle = 'green'
+              ctx.fillStyle = 'green'
+              ctx.stroke()
+              ctx.fillText(
+                `${prediction.class} (${Math.round(prediction.score * 100)}%)`,
+                prediction.bbox[0],
+                prediction.bbox[1] > 10 ? prediction.bbox[1] - 5 : 10
+              )
+
+              const audio = new SpeechSynthesisUtterance(prediction.class)
+              window.speechSynthesis.speak(audio)
+            })
+
+            requestAnimationFrame(detectFrame)
+          }
+
+          detectFrame()
+        })
+      } catch (error) {
+        console.error('Error accessing webcam: ', error)
+      }
+    }
   }
 
   return (
@@ -155,8 +207,8 @@ export default function Hero() {
             transition={{ duration: 0.5 }}
           />
         </motion.button>
+        <video ref={videoRef} className="hidden" />
       </div>
     </section>
   )
 }
-
