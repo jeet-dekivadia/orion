@@ -2,13 +2,114 @@
 
 import { motion, useAnimation } from "framer-motion"
 import { useEffect, useRef, useState } from "react"
-// Import TensorFlow.js and COCO-SSD model
-import * as tf from '@tensorflow/tfjs';
-import * as cocoSsd from '@tensorflow-models/coco-ssd';
+import axios from 'axios'
+import { Buffer } from 'buffer'
+
+const groqApiKey = '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'
+const groqApiUrl = 'https://api.groq.com'
+
+async function getBase64Image(imagePath: string): Promise<Buffer> {
+  const fs = await import('fs')
+  const path = await import('path')
+  const imageBuffer = fs.readFileSync(path.join(__dirname, imagePath))
+  return imageBuffer
+}
+
+async function previousFigureContext(flag: number): Promise<string> {
+  const imageBuffer = await getBase64Image('test.jpg')
+  const base64Image = imageBuffer.toString('base64')
+
+  const text1 = 'What is in this image? Give a two sentence summary.'
+  const text2 = 'Only give the complete text for the following image.'
+
+  const request = {
+    input: {
+      text: text1 + ' ' + text2,
+      image: base64Image,
+    },
+    model: 'text2text',
+  }
+
+  const response = await axios.post(`${groqApiUrl}/predict`, request, {
+    headers: {
+      Authorization: `Bearer ${groqApiKey}`,
+      'Content-Type': 'application/json',
+    },
+  })
+
+  return response.data.output.text
+}
+
+async function figureContext(client: any, flag: number, base64Image: string): Promise<string> {
+  const text1 = 'What is in this image? Give a two sentence summary.'
+  const text2 = 'Only give the complete text for the following image.'
+
+  const request = {
+    input: {
+      text: text1 + ' ' + text2,
+      image: base64Image,
+    },
+    model: 'text2text',
+  }
+
+  const response = await axios.post(`${groqApiUrl}/predict`, request, {
+    headers: {
+      Authorization: `Bearer ${groqApiKey}`,
+      'Content-Type': 'application/json',
+    },
+  })
+
+  return response.data.output.text
+}
+
+async function userOutput(client: any, flag: string, base64Image: string): Promise<string> {
+  if (flag === '0') {
+    const response = await previousFigureContext(0)
+    return response
+  } else if (flag === '1') {
+    const response = await previousFigureContext(1)
+    const speechResponse = await axios.post(`${groqApiUrl}/speech`, {
+      input: response,
+      voice: 'nova',
+    }, {
+      headers: {
+        Authorization: `Bearer ${groqApiKey}`,
+        'Content-Type': 'application/json',
+      },
+    })
+
+    const audioBuffer = Buffer.from(speechResponse.data.audio, 'base64')
+    const fs = await import('fs')
+    const path = await import('path')
+    fs.writeFileSync(path.join(__dirname, 'output.mp3'), audioBuffer)
+
+    const pygame = await import('pygame')
+    pygame.mixer.init()
+    pygame.mixer.music.load('output.mp3')
+    pygame.mixer.music.play()
+
+    while (pygame.mixer.music.get_busy()) {
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+
+    return response
+  } else if (flag === '2') {
+    const response = await figureContext(client, 1, base64Image)
+    const brailleTest = await import('braille_test')
+    brailleTest.sendText(response)
+    return response
+  } else if (flag === '3') {
+    const tesseract = await import('tesseract.js')
+    const { data: { text } } = await tesseract.recognize('test.jpg')
+    return text
+  } else {
+    throw new Error('Invalid flag')
+  }
+}
 
 export default function Hero() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const videoRef = useRef<HTMLVideoElement>(null) // Reference for the video element
+  const videoRef = useRef<HTMLVideoElement>(null)
   const [isHovered, setIsHovered] = useState(false)
   const buttonControls = useAnimation()
 
@@ -123,8 +224,6 @@ export default function Hero() {
         video.srcObject = stream
         video.play()
 
-        const model = await cocoSsd.load()
-
         video.addEventListener('play', () => {
           const canvas = document.createElement('canvas')
           const ctx = canvas.getContext('2d')
@@ -137,7 +236,9 @@ export default function Hero() {
 
           const detectFrame = async () => {
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-            const predictions = await model.detect(video)
+            const base64Image = canvas.toDataURL().split(',')[1]
+
+            const predictions = await figureContext(null, 0, base64Image)
 
             predictions.forEach(prediction => {
               ctx.beginPath()
