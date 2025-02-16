@@ -62,8 +62,8 @@
     "framer-motion": "latest",
     "tailwindcss": "latest",
     "react-intersection-observer": "latest",
-    "@tensorflow-models/coco-ssd": "^2.2.2",  // Added dependency
-    "@tensorflow/tfjs": "latest"  // Added dependency
+    "@tensorflow-models/coco-ssd": "^2.2.2",
+    "@tensorflow/tfjs": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
