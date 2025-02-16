@@ -1,5 +1,5 @@
 {
-  "name": "my-v0-project",
+  "name": "orion-treehacks-2025",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -61,7 +61,9 @@
     "@emotion/is-prop-valid": "latest",
     "framer-motion": "latest",
     "tailwindcss": "latest",
-    "react-intersection-observer": "latest"
+    "react-intersection-observer": "latest",
+    "@tensorflow-models/coco-ssd": "^2.2.2",  // Added dependency
+    "@tensorflow/tfjs": "latest"  // Added dependency
   },
   "devDependencies": {
     "@types/node": "^22",
